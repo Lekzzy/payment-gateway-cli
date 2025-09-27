@@ -1,0 +1,52 @@
+[
+  {
+    "id": "TC001",
+    "title": "get plans endpoint",
+    "description": "Verify that the GET /api/v1/plans endpoint returns a list of billing plans with correct data structure and enforces API key authentication and rate limiting."
+  },
+  {
+    "id": "TC002",
+    "title": "post plans endpoint",
+    "description": "Test the POST /api/v1/plans endpoint to create a new billing plan, ensuring validation of input data, authentication, and proper response with the created plan details."
+  },
+  {
+    "id": "TC003",
+    "title": "get individual plan endpoint",
+    "description": "Validate the GET /api/v1/plans/:id endpoint to retrieve details of a specific billing plan by ID, including handling of non-existent IDs and authentication enforcement."
+  },
+  {
+    "id": "TC004",
+    "title": "put individual plan endpoint",
+    "description": "Test the PUT /api/v1/plans/:id endpoint for updating an existing billing plan, verifying input validation, authentication, and correct update of plan data."
+  },
+  {
+    "id": "TC005",
+    "title": "delete individual plan endpoint",
+    "description": "Verify the DELETE /api/v1/plans/:id endpoint to remove a billing plan, ensuring proper authentication, handling of non-existent IDs, and confirmation of deletion."
+  },
+  {
+    "id": "TC006",
+    "title": "get invoices endpoint",
+    "description": "Test the GET /api/v1/invoices endpoint to list invoices with correct pagination, filtering, authentication, and response structure."
+  },
+  {
+    "id": "TC007",
+    "title": "post invoices endpoint",
+    "description": "Validate the POST /api/v1/invoices endpoint to create a new invoice, checking input validation, authentication, and response with invoice details."
+  },
+  {
+    "id": "TC008",
+    "title": "post invoice pay endpoint",
+    "description": "Verify the POST /api/v1/invoices/:id/pay endpoint to mark an invoice as paid, ensuring authentication, correct status update, and error handling for invalid invoice IDs."
+  },
+  {
+    "id": "TC009",
+    "title": "post invoice cancel endpoint",
+    "description": "Test the POST /api/v1/invoices/:id/cancel endpoint to cancel an invoice, verifying authentication, status update, and handling of invalid or already paid invoices."
+  },
+  {
+    "id": "TC010",
+    "title": "post webhooks endpoint",
+    "description": "Validate the POST /api/v1/webhooks endpoint to receive webhook events, including signature verification, event processing, and triggering Discord role assignments and notifications."
+  }
+]

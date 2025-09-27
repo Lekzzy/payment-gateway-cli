@@ -1,0 +1,183 @@
+{
+  "project_name": "payment-gateway-cli",
+  "description": "Payment gateway CLI tool and SDK for billing system integrations with Discord role management",
+  "tech_stack": {
+    "language": "TypeScript",
+    "runtime": "Node.js",
+    "framework": "Express.js",
+    "testing": "Jest",
+    "cli": "Commander.js",
+    "database": "Mock/In-memory",
+    "external_apis": ["Discord API"],
+    "build_tools": ["TypeScript Compiler", "ts-node"],
+    "linting": "ESLint",
+    "package_manager": "npm"
+  },
+  "dependencies": {
+    "production": [
+      "axios",
+      "chalk", 
+      "commander",
+      "cors",
+      "crypto",
+      "discord.js",
+      "dotenv",
+      "express",
+      "express-rate-limit",
+      "helmet",
+      "inquirer",
+      "rimraf",
+      "tsconfig-paths"
+    ],
+    "development": [
+      "@types/cors",
+      "@types/express", 
+      "@types/express-rate-limit",
+      "@types/inquirer",
+      "@types/jest",
+      "@types/node",
+      "@types/supertest",
+      "@typescript-eslint/eslint-plugin",
+      "@typescript-eslint/parser",
+      "eslint",
+      "jest",
+      "nodemon",
+      "prettier",
+      "supertest",
+      "ts-jest",
+      "ts-node",
+      "typescript"
+    ]
+  },
+  "features": [
+    {
+      "name": "CLI Interface",
+      "description": "Command-line interface for billing operations",
+      "components": ["Plan management", "Invoice operations", "Refund processing", "Webhook utilities"]
+    },
+    {
+      "name": "Node.js SDK",
+      "description": "TypeScript SDK for billing system integration",
+      "components": ["Plans API", "Invoices API", "Refunds API", "Webhooks API"]
+    },
+    {
+      "name": "REST API Server",
+      "description": "Express.js API server with billing endpoints",
+      "components": ["Plans CRUD", "Invoices CRUD", "Refunds management", "Webhook handling"]
+    },
+    {
+      "name": "Test API Server",
+      "description": "Mock API server for development and testing",
+      "components": ["Mock data generation", "Test utilities", "Development fixtures"]
+    },
+    {
+      "name": "Discord Integration",
+      "description": "Automatic Discord role management based on billing status",
+      "components": ["Webhook listener", "Role assignment", "Payment notifications"]
+    },
+    {
+      "name": "Webhook System",
+      "description": "Webhook processing and verification",
+      "components": ["Signature verification", "Event processing", "Discord notifications"]
+    },
+    {
+      "name": "Payment Processing",
+      "description": "Invoice and payment management",
+      "components": ["Invoice creation", "Payment tracking", "Status polling", "Refund processing"]
+    }
+  ],
+  "api_endpoints": [
+    {
+      "path": "/api/v1/plans",
+      "methods": ["GET", "POST"],
+      "description": "Plan management endpoints"
+    },
+    {
+      "path": "/api/v1/plans/:id",
+      "methods": ["GET", "PUT", "DELETE"],
+      "description": "Individual plan operations"
+    },
+    {
+      "path": "/api/v1/invoices",
+      "methods": ["GET", "POST"],
+      "description": "Invoice management endpoints"
+    },
+    {
+      "path": "/api/v1/invoices/:id",
+      "methods": ["GET", "PUT"],
+      "description": "Individual invoice operations"
+    },
+    {
+      "path": "/api/v1/invoices/:id/pay",
+      "methods": ["POST"],
+      "description": "Mark invoice as paid"
+    },
+    {
+      "path": "/api/v1/invoices/:id/cancel",
+      "methods": ["POST"],
+      "description": "Cancel invoice"
+    },
+    {
+      "path": "/api/v1/invoices/:id/status",
+      "methods": ["GET"],
+      "description": "Get invoice status for polling"
+    },
+    {
+      "path": "/api/v1/refunds",
+      "methods": ["GET", "POST"],
+      "description": "Refund management endpoints"
+    },
+    {
+      "path": "/api/v1/webhooks",
+      "methods": ["GET", "POST"],
+      "description": "Webhook management endpoints"
+    },
+    {
+      "path": "/health",
+      "methods": ["GET"],
+      "description": "Health check endpoint"
+    },
+    {
+      "path": "/docs",
+      "methods": ["GET"],
+      "description": "API documentation endpoint"
+    }
+  ],
+  "test_coverage": {
+    "unit_tests": true,
+    "integration_tests": true,
+    "api_tests": true,
+    "sdk_tests": true,
+    "test_framework": "Jest",
+    "test_files": ["src/tests/sdk.test.ts", "src/tests/api.test.ts"]
+  },
+  "architecture": {
+    "pattern": "Modular/Layered",
+    "components": [
+      "CLI Layer",
+      "SDK Layer", 
+      "API Layer",
+      "Discord Integration Layer",
+      "Utilities Layer"
+    ],
+    "data_flow": "CLI/SDK -> API -> Discord Webhooks"
+  },
+  "security_features": [
+    "API key authentication",
+    "Rate limiting",
+    "CORS protection",
+    "Helmet security headers",
+    "Webhook signature verification"
+  ],
+  "deployment": {
+    "build_command": "npm run build",
+    "start_command": "npm start",
+    "api_start": "npm run api:start",
+    "test_command": "npm test",
+    "ports": {
+      "api_server": 3000,
+      "test_server": 3002,
+      "discord_webhook": 3001
+    }
+  }
+}

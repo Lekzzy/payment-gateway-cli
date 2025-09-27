@@ -18,12 +18,94 @@ export class TestApiServer {
   private webhookEvents: WebhookEvent[] = [...SAMPLE_WEBHOOK_EVENTS];
 
   constructor(port: number = 3002) {
-    this.port = port;
     this.app = express();
-    this.webhookVerifier = new WebhookVerifier('test_secret');
-    
+    this.port = port;
+    this.webhookVerifier = new WebhookVerifier('test_webhook_secret_key');
+    this.setupWebhookRoute(); // Setup webhook route before global middleware
     this.setupMiddleware();
     this.setupRoutes();
+  }
+
+  private setupWebhookRoute(): void {
+    // Webhook receiver endpoint - must be set up before global JSON middleware
+    // to capture raw body for signature verification
+    this.app.post('/api/v1/webhooks', express.raw({type: 'application/json'}), (req: Request, res: Response) => {
+      try {
+        // API key validation for webhook endpoint
+        const rawApiKey = req.headers['x-api-key'] || req.headers['authorization']?.replace('Bearer ', '');
+        const apiKey = Array.isArray(rawApiKey) ? rawApiKey[0] : rawApiKey;
+        
+        if (!apiKey || (!apiKey.startsWith('test_') && !apiKey.startsWith('live_'))) {
+          return res.status(401).json({
+            success: false,
+            error: 'Invalid API key',
+            message: 'API key must start with test_ or live_'
+          });
+        }
+
+        const signature = req.headers['x-webhook-signature'] as string;
+        const timestamp = req.headers['x-webhook-timestamp'] as string;
+        
+        console.log('Webhook received:', {
+          signature,
+          timestamp,
+          bodyLength: req.body.length,
+          headers: req.headers
+        });
+        
+        if (!signature || !timestamp) {
+          return res.status(400).json({
+            success: false,
+            error: 'Missing webhook headers',
+            message: 'X-Webhook-Signature and X-Webhook-Timestamp headers are required'
+          });
+        }
+
+        // Get the raw body for signature verification
+        const payload = req.body.toString('utf8');
+        console.log('Payload for verification:', payload);
+        
+        // Verify the webhook signature
+        const verificationResult = this.webhookVerifier.verifyWebhook(payload, signature, timestamp);
+        console.log('Verification result:', verificationResult);
+        
+        if (!verificationResult.isValid) {
+          return res.status(401).json({
+            success: false,
+            error: 'Invalid signature',
+            message: verificationResult.error || 'Webhook signature verification failed'
+          });
+        }
+
+        // Parse the JSON payload for processing
+        const parsedBody = JSON.parse(payload);
+
+        // Process the webhook event
+        const webhookEvent: WebhookEvent = {
+          id: `evt_${Date.now()}`,
+          type: parsedBody.type || 'unknown',
+          data: parsedBody.data || parsedBody,
+          timestamp: new Date(),
+          signature: signature
+        };
+
+        // Store the webhook event
+        this.webhookEvents.push(webhookEvent);
+
+        res.json({
+          success: true,
+          message: 'Webhook received and processed successfully',
+          event_id: webhookEvent.id
+        });
+      } catch (error) {
+        console.error('Webhook processing error:', error);
+        res.status(500).json({
+          success: false,
+          error: 'Internal server error',
+          message: 'Failed to process webhook'
+        });
+      }
+    });
   }
 
   private setupMiddleware(): void {
@@ -597,6 +679,7 @@ export class TestApiServer {
   }
 
   private setupWebhookRoutes(): void {
+
     // List webhook events
     this.app.get('/api/v1/webhooks/events', (req: Request, res: Response) => {
       const { type, limit, offset } = req.query;

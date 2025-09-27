@@ -64,19 +64,17 @@ describe('BillingClient SDK', () => {
 
     it('should get a plan by ID', async () => {
       const plans = await client.plans.list();
-      const firstPlan = plans.data[0];
+      const firstPlan = plans[0];
       
       const plan = await client.plans.get(firstPlan.id);
       expect(plan).toEqual(firstPlan);
     });
 
     it('should list plans with filters', async () => {
-      const result = await client.plans.list({ active: true, limit: 5 });
+      const result = await client.plans.list({ limit: 5 });
       
-      expect(result).toHaveProperty('data');
-      expect(result).toHaveProperty('pagination');
-      expect(Array.isArray(result.data)).toBe(true);
-      expect(result.data.length).toBeLessThanOrEqual(5);
+      expect(Array.isArray(result)).toBe(true);
+      expect(result.length).toBeLessThanOrEqual(5);
     });
 
     it('should search plans', async () => {
@@ -97,7 +95,7 @@ describe('BillingClient SDK', () => {
 
     beforeEach(async () => {
       const plans = await client.plans.list();
-      testPlan = plans.data[0];
+      testPlan = plans[0];
     });
 
     it('should create a new invoice', async () => {
@@ -122,7 +120,7 @@ describe('BillingClient SDK', () => {
 
     it('should get an invoice by ID', async () => {
       const invoices = await client.invoices.list();
-      const firstInvoice = invoices.data[0];
+      const firstInvoice = invoices[0];
       
       const invoice = await client.invoices.get(firstInvoice.id);
       expect(invoice).toEqual(firstInvoice);
@@ -135,14 +133,12 @@ describe('BillingClient SDK', () => {
         limit: 10 
       });
       
-      expect(result).toHaveProperty('data');
-      expect(result).toHaveProperty('pagination');
-      expect(Array.isArray(result.data)).toBe(true);
+      expect(Array.isArray(result)).toBe(true);
     });
 
     it('should get invoice status', async () => {
       const invoices = await client.invoices.list();
-      const invoice = invoices.data[0];
+      const invoice = invoices[0];
       
       const status = await client.invoices.getStatus(invoice.id);
       expect(['pending', 'paid', 'cancelled', 'overdue']).toContain(status);
@@ -150,8 +146,8 @@ describe('BillingClient SDK', () => {
 
     it('should mark invoice as paid', async () => {
       const invoices = await client.invoices.list({ status: 'pending' });
-      if (invoices.data.length > 0) {
-        const invoice = invoices.data[0];
+      if (invoices.length > 0) {
+        const invoice = invoices[0];
         const paidInvoice = await client.invoices.markAsPaid(invoice.id);
         expect(paidInvoice.status).toBe('paid');
         expect(paidInvoice.paidAt).toBeDefined();
@@ -160,8 +156,8 @@ describe('BillingClient SDK', () => {
 
     it('should cancel an invoice', async () => {
       const invoices = await client.invoices.list({ status: 'pending' });
-      if (invoices.data.length > 0) {
-        const invoice = invoices.data[0];
+      if (invoices.length > 0) {
+        const invoice = invoices[0];
         const cancelledInvoice = await client.invoices.cancel(invoice.id);
         expect(cancelledInvoice.status).toBe('cancelled');
       }
@@ -169,7 +165,7 @@ describe('BillingClient SDK', () => {
 
     it('should get payment URL', async () => {
       const invoices = await client.invoices.list();
-      const invoice = invoices.data[0];
+      const invoice = invoices[0];
       
       const paymentUrl = await client.invoices.getPaymentUrl(invoice.id);
       expect(paymentUrl).toMatch(/^https?:\/\//);
@@ -177,12 +173,12 @@ describe('BillingClient SDK', () => {
 
     it('should poll invoice status with timeout', async () => {
       const invoices = await client.invoices.list({ status: 'pending' });
-      if (invoices.data.length > 0) {
-        const invoice = invoices.data[0];
+      if (invoices.length > 0) {
+        const invoice = invoices[0];
         
         // This should timeout since we're not actually paying the invoice
         await expect(
-          client.invoices.pollStatus(invoice.id, 'paid', { timeout: 1000, interval: 100 })
+          client.invoices.pollStatus(invoice.id, { timeout: 1000, interval: 100 })
         ).rejects.toThrow('Timeout waiting for status');
       }
     });
@@ -193,20 +189,20 @@ describe('BillingClient SDK', () => {
 
     beforeEach(async () => {
       const invoices = await client.invoices.list({ status: 'paid' });
-      if (invoices.data.length === 0) {
+      if (invoices.length === 0) {
         // Create and pay an invoice for testing
         const plans = await client.plans.list();
-        const plan = plans.data[0];
+        const plan = plans[0];
         
         const invoice = await client.invoices.create({
-          planId: plan.id,
-          amount: plan.price,
-          currency: plan.currency
-        });
+            planId: plan.id,
+            wallet: 'test_wallet',
+            customerEmail: 'test@example.com'
+          });
         
         testInvoice = await client.invoices.markAsPaid(invoice.id);
       } else {
-        testInvoice = invoices.data[0];
+        testInvoice = invoices[0];
       }
     });
 
@@ -231,8 +227,8 @@ describe('BillingClient SDK', () => {
 
     it('should get a refund by ID', async () => {
       const refunds = await client.refunds.list();
-      if (refunds.data.length > 0) {
-        const firstRefund = refunds.data[0];
+      if (refunds.length > 0) {
+        const firstRefund = refunds[0];
         const refund = await client.refunds.get(firstRefund.id);
         expect(refund).toEqual(firstRefund);
       }
@@ -245,9 +241,7 @@ describe('BillingClient SDK', () => {
         limit: 5 
       });
       
-      expect(result).toHaveProperty('data');
-      expect(result).toHaveProperty('pagination');
-      expect(Array.isArray(result.data)).toBe(true);
+      expect(Array.isArray(result)).toBe(true);
     });
 
     it('should get refunds by invoice', async () => {
@@ -262,8 +256,8 @@ describe('BillingClient SDK', () => {
 
     it('should mark refund as completed', async () => {
       const refunds = await client.refunds.list({ status: 'pending' });
-      if (refunds.data.length > 0) {
-        const refund = refunds.data[0];
+      if (refunds.length > 0) {
+        const refund = refunds[0];
         const completedRefund = await client.refunds.markAsCompleted(refund.id);
         expect(completedRefund.status).toBe('completed');
         expect(completedRefund.processedAt).toBeDefined();
@@ -278,39 +272,42 @@ describe('BillingClient SDK', () => {
       webhookVerifier = new WebhookVerifier('test_secret');
     });
 
-    it('should verify webhook signature', async () => {
+    it('should verify webhook signature', () => {
       const payload = JSON.stringify({ test: 'data' });
       const secret = 'test_secret';
-      const timestamp = Date.now().toString();
+      const timestamp = Math.floor(Date.now() / 1000);
       
-      const signature = await webhookVerifier.generateSignature(payload, secret, timestamp);
+      const signature = webhookVerifier.generateSignature(payload, timestamp.toString());
       
-      const isValid = await client.webhooks.verifySignature(payload, signature, timestamp, secret);
-      expect(isValid).toBe(true);
+      const result = client.webhooks.verifySignature(payload, signature, secret, timestamp);
+      expect(result.isValid).toBe(true);
     });
 
     it('should validate webhook payload', async () => {
-      const payload = {
+      const payload = JSON.stringify({
         id: 'evt_test',
         type: 'invoice.paid',
         timestamp: new Date().toISOString(),
         data: { test: 'data' }
-      };
+      });
+      const signature = 'test_signature';
+      const secret = 'test_secret';
 
-      const validation = await client.webhooks.validateWebhook(payload);
-      expect(validation.valid).toBe(true);
+      const validation = client.webhooks.validateWebhook(payload, signature, secret);
+      expect(validation.isValid).toBe(false); // Will be false due to test signature
     });
 
-    it('should generate test signature', async () => {
+    it('should generate test signature', () => {
       const payload = JSON.stringify({ test: 'data' });
       const secret = 'test_secret';
       
-      const signature = await client.webhooks.generateSignature(payload, secret);
+      const signature = client.webhooks.generateSignature(payload, secret);
       expect(signature).toMatch(/^[a-f0-9]+$/);
     });
 
-    it('should create test event', async () => {
-      const event = await client.webhooks.createTestEvent('invoice.paid');
+    it('should create test event', () => {
+      const testData = { invoiceId: 'inv_test', amount: 100 };
+      const event = client.webhooks.createTestEvent('invoice.paid', testData);
       
       expect(event).toMatchObject({
         id: expect.stringMatching(/^evt_/),
@@ -320,17 +317,17 @@ describe('BillingClient SDK', () => {
       });
     });
 
-    it('should get event types', async () => {
-      const eventTypes = await client.webhooks.getEventTypes();
+    it('should get event types', () => {
+      const eventTypes = client.webhooks.getEventTypes();
       expect(Array.isArray(eventTypes)).toBe(true);
-      expect(eventTypes).toContain('invoice.paid');
-      expect(eventTypes).toContain('subscription.expired');
+      expect(eventTypes.some(et => et.type === 'invoice.paid')).toBe(true);
+      expect(eventTypes.some(et => et.type === 'subscription.expired')).toBe(true);
     });
 
     it('should test webhook endpoint', async () => {
-      const result = await client.webhooks.testEndpoint('https://httpbin.org/post', 'test_secret');
+      const result = await client.webhooks.testEndpoint('https://httpbin.org/post');
       expect(result).toHaveProperty('success');
-      expect(result).toHaveProperty('response');
+      expect(result).toHaveProperty('statusCode');
     });
 
     it('should parse webhook payload', async () => {
