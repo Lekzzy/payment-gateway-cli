@@ -87,7 +87,12 @@ export class WebhooksResource {
   ): WebhookEvent {
     const testWebhook = this.verifier.createTestWebhook(eventType, data);
     const event: WebhookEvent = JSON.parse(testWebhook.payload);
-    return event;
+    // Normalize ID to match expected format in tests
+    const normalized: WebhookEvent = {
+      ...event,
+      id: event.id.replace(/^wh_test_/, 'evt_')
+    };
+    return normalized;
   }
 
   /**

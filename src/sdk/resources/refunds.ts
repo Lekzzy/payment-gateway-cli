@@ -1,14 +1,11 @@
 import { AxiosInstance } from 'axios';
 import { Refund, Invoice, ApiResponse } from '../../types/index';
-import { MockApiService } from '../../utils/mockApi';
 
 export class RefundsResource {
   private httpClient: AxiosInstance;
-  private mockApi: MockApiService;
 
   constructor(httpClient: AxiosInstance) {
     this.httpClient = httpClient;
-    this.mockApi = MockApiService.getInstance();
   }
 
   /**
@@ -21,13 +18,18 @@ export class RefundsResource {
     metadata?: Record<string, any>;
   }): Promise<Refund> {
     try {
-      const result = await this.mockApi.createRefund(refundData.invoiceId, refundData.reason);
+      const payload: Record<string, any> = {
+        invoiceId: refundData.invoiceId,
+        amount: refundData.amount,
+        reason: refundData.reason,
+        metadata: refundData.metadata
+      };
 
-      if (!result.success || !result.data) {
-        throw new Error(result.error || 'Failed to create refund');
+      const response = await this.httpClient.post<ApiResponse<Refund>>('/refunds', payload);
+      if (!response.data.success || !response.data.data) {
+        throw new Error(response.data.error || 'Failed to create refund');
       }
-
-      return result.data;
+      return response.data.data;
     } catch (error) {
       throw new Error(`Failed to create refund: ${error instanceof Error ? error.message : String(error)}`);
     }
@@ -38,13 +40,11 @@ export class RefundsResource {
    */
   async get(refundId: string): Promise<Refund> {
     try {
-      const result = await this.mockApi.getRefund(refundId);
-
-      if (!result.success || !result.data) {
-        throw new Error(result.error || 'Refund not found');
+      const response = await this.httpClient.get<ApiResponse<Refund>>(`/refunds/${refundId}`);
+      if (!response.data.success || !response.data.data) {
+        throw new Error(response.data.error || 'Refund not found');
       }
-
-      return result.data;
+      return response.data.data;
     } catch (error) {
       throw new Error(`Failed to get refund: ${error instanceof Error ? error.message : String(error)}`);
     }
@@ -56,46 +56,32 @@ export class RefundsResource {
   async list(options?: {
     page?: number;
     limit?: number;
-    status?: 'pending' | 'completed' | 'failed';
+    status?: Refund['status'];
     invoiceId?: string;
     startDate?: Date;
     endDate?: Date;
   }): Promise<Refund[]> {
     try {
-      const result = await this.mockApi.listRefunds();
+      const params: Record<string, any> = {};
+      if (options?.limit !== undefined) params.limit = options.limit;
+      if (options?.page !== undefined) params.offset = options.page && options.limit ? (options.page - 1) * options.limit : undefined;
+      if (options?.status) params.status = options.status;
+      if (options?.invoiceId) params.invoiceId = options.invoiceId;
 
-      if (!result.success || !result.data) {
-        throw new Error(result.error || 'Failed to list refunds');
+      const response = await this.httpClient.get<ApiResponse<Refund[]>>('/refunds', { params });
+      if (!response.data.success || !response.data.data) {
+        throw new Error(response.data.error || 'Failed to list refunds');
       }
 
-      let refunds = result.data;
+      let refunds = response.data.data;
 
-      // Apply filters if provided
-      if (options?.status) {
-        refunds = refunds.filter((refund: Refund) => refund.status === options.status);
-      }
-
-      if (options?.invoiceId) {
-        refunds = refunds.filter((refund: Refund) => refund.invoiceId === options.invoiceId);
-      }
-
+      // Apply date filters client-side if provided
       if (options?.startDate) {
-        refunds = refunds.filter((refund: Refund) => 
-          new Date(refund.createdAt) >= options.startDate!
-        );
+        refunds = refunds.filter((refund: Refund) => new Date(refund.createdAt) >= options.startDate!);
       }
 
       if (options?.endDate) {
-        refunds = refunds.filter((refund: Refund) => 
-          new Date(refund.createdAt) <= options.endDate!
-        );
-      }
-
-      // Apply pagination if provided
-      if (options?.page && options?.limit) {
-        const startIndex = (options.page - 1) * options.limit;
-        const endIndex = startIndex + options.limit;
-        refunds = refunds.slice(startIndex, endIndex);
+        refunds = refunds.filter((refund: Refund) => new Date(refund.createdAt) <= options.endDate!);
       }
 
       return refunds;
@@ -120,7 +106,7 @@ export class RefundsResource {
    */
   async getStatus(refundId: string): Promise<{
     id: string;
-    status: 'pending' | 'completed' | 'failed';
+    status: Refund['status'];
     lastUpdated: Date;
   }> {
     try {
@@ -141,24 +127,11 @@ export class RefundsResource {
    */
   async markAsCompleted(refundId: string): Promise<Refund> {
     try {
-      // Get current refund
-      const refund = await this.get(refundId);
-
-      if (refund.status !== 'pending') {
-        throw new Error('Can only mark pending refunds as completed');
+      const response = await this.httpClient.put<ApiResponse<Refund>>(`/refunds/${refundId}`, { status: 'completed' });
+      if (!response.data.success || !response.data.data) {
+        throw new Error(response.data.error || 'Failed to update refund');
       }
-
-      // For now, just update status to completed
-      // In a real implementation, this would make an API call
-      const updatedRefund: Refund = {
-        ...refund,
-        status: 'completed',
-        processedAt: new Date(),
-        updatedAt: new Date()
-      };
-
-      console.warn('Refund completion is simulated in mock mode');
-      return updatedRefund;
+      return response.data.data;
     } catch (error) {
       throw new Error(`Failed to mark refund as completed: ${error instanceof Error ? error.message : String(error)}`);
     }
@@ -169,27 +142,11 @@ export class RefundsResource {
    */
   async cancel(refundId: string, reason?: string): Promise<Refund> {
     try {
-      // Get current refund
-      const refund = await this.get(refundId);
-
-      if (refund.status !== 'pending') {
-        throw new Error('Can only cancel pending refunds');
+      const response = await this.httpClient.put<ApiResponse<Refund>>(`/refunds/${refundId}`, { status: 'failed' });
+      if (!response.data.success || !response.data.data) {
+        throw new Error(response.data.error || 'Failed to cancel refund');
       }
-
-      // For now, just update status to failed
-      // In a real implementation, this would make an API call
-      const updatedRefund: Refund = {
-        ...refund,
-        status: 'failed',
-        updatedAt: new Date(),
-        metadata: {
-          ...refund.metadata,
-          cancelReason: reason || 'Cancelled by user'
-        }
-      };
-
-      console.warn('Refund cancellation is simulated in mock mode');
-      return updatedRefund;
+      return response.data.data;
     } catch (error) {
       throw new Error(`Failed to cancel refund: ${error instanceof Error ? error.message : String(error)}`);
     }
@@ -241,59 +198,27 @@ export class RefundsResource {
   /**
    * Check if an invoice can be refunded
    */
-  async canRefund(invoiceId: string): Promise<{
-    canRefund: boolean;
-    reason?: string;
-    maxRefundAmount?: number;
-    existingRefunds?: Refund[];
-  }> {
+  async canRefund(invoiceId: string): Promise<boolean> {
     try {
-      // Get the invoice
-      const invoiceResult = await this.mockApi.getInvoice(invoiceId);
-      if (!invoiceResult.success || !invoiceResult.data) {
-        return {
-          canRefund: false,
-          reason: 'Invoice not found'
-        };
+      const invResp = await this.httpClient.get<ApiResponse<Invoice>>(`/invoices/${invoiceId}`);
+      if (!invResp.data.success || !invResp.data.data) {
+        return false;
       }
 
-      const invoice = invoiceResult.data;
-
-      // Check if invoice is paid
+      const invoice = invResp.data.data;
       if (invoice.status !== 'paid') {
-        return {
-          canRefund: false,
-          reason: 'Invoice must be paid to be refunded'
-        };
+        return false;
       }
 
-      // Get existing refunds for this invoice
       const existingRefunds = await this.getByInvoice(invoiceId);
       const totalRefunded = existingRefunds
         .filter(refund => refund.status === 'completed')
         .reduce((sum, refund) => sum + refund.amount, 0);
 
       const maxRefundAmount = invoice.amount - totalRefunded;
-
-      if (maxRefundAmount <= 0) {
-        return {
-          canRefund: false,
-          reason: 'Invoice has already been fully refunded',
-          maxRefundAmount: 0,
-          existingRefunds
-        };
-      }
-
-      return {
-        canRefund: true,
-        maxRefundAmount,
-        existingRefunds
-      };
+      return maxRefundAmount > 0;
     } catch (error) {
-      return {
-        canRefund: false,
-        reason: `Error checking refund eligibility: ${error instanceof Error ? error.message : String(error)}`
-      };
+      return false;
     }
   }
 

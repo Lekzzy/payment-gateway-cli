@@ -42,7 +42,7 @@ export function webhookCommands(program: Command) {
         // Prepare webhook data based on event type
         switch (eventType) {
           case 'invoice.paid':
-          case 'invoice.failed':
+          case 'invoice.failed': {
             if (!options.invoiceId) {
               const { invoiceId } = await inquirer.prompt([
                 {
@@ -70,8 +70,9 @@ export function webhookCommands(program: Command) {
               customerWallet: invoiceResult.data.wallet
             };
             break;
+          }
 
-          case 'subscription.expired':
+          case 'subscription.expired': {
             if (!options.planId) {
               const { planId } = await inquirer.prompt([
                 {
@@ -90,8 +91,9 @@ export function webhookCommands(program: Command) {
               reason: 'subscription_period_ended'
             };
             break;
+          }
 
-          case 'refund.completed':
+          case 'refund.completed': {
             if (!options.invoiceId) {
               const { invoiceId } = await inquirer.prompt([
                 {
@@ -119,6 +121,7 @@ export function webhookCommands(program: Command) {
               refundedAt: new Date()
             };
             break;
+          }
         }
 
         console.log(chalk.blue(`🔔 Preparing ${eventType} webhook...`));

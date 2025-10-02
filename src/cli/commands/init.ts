@@ -36,7 +36,7 @@ export function initCommand(program: Command) {
           }
         }
 
-        let config: Partial<CLIConfig> = {};
+        const config: Partial<CLIConfig> = {};
 
         // Get API key
         if (options.apiKey) {

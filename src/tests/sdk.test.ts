@@ -9,18 +9,20 @@ describe('BillingClient SDK', () => {
 
   beforeEach(() => {
     mockApi = new MockApiService();
+    const baseUrl = process.env.TEST_API_BASE_URL || 'http://localhost:3002/api/v1';
     client = new BillingClient({
       apiKey: 'test_12345',
-      baseUrl: 'http://localhost:3002/api/v1',
+      baseUrl,
       timeout: 5000
     });
   });
 
   describe('Client Configuration', () => {
     it('should initialize with correct configuration', () => {
+      const expectedBaseUrl = process.env.TEST_API_BASE_URL || 'http://localhost:3002/api/v1';
       expect(client.getConfig()).toEqual({
         apiKey: 'test_12345',
-        baseUrl: 'http://localhost:3002/api/v1',
+        baseUrl: expectedBaseUrl,
         timeout: 5000
       });
     });

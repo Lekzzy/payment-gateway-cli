@@ -1,14 +1,11 @@
 import { AxiosInstance } from 'axios';
-import { Invoice, ApiResponse, PaginatedResponse } from '../../types/index';
-import { MockApiService } from '../../utils/mockApi';
+import { Invoice, ApiResponse, Plan } from '../../types/index';
 
 export class InvoicesResource {
   private httpClient: AxiosInstance;
-  private mockApi: MockApiService;
 
   constructor(httpClient: AxiosInstance) {
     this.httpClient = httpClient;
-    this.mockApi = MockApiService.getInstance();
   }
 
   /**
@@ -16,119 +13,103 @@ export class InvoicesResource {
    */
   async create(invoiceData: {
     planId: string;
-    wallet: string;
-    customerEmail?: string;
-    customAmount?: number;
+    amount?: number;
+    currency?: string;
+    wallet?: string;
     description?: string;
+    dueDate?: string | Date;
     metadata?: Record<string, any>;
+    customerEmail?: string;
   }): Promise<Invoice> {
-    try {
-      const result = await this.mockApi.createInvoice(invoiceData);
+    // Prepare metadata, merging any provided metadata with customerEmail if present
+    const metadata = {
+      ...(invoiceData.metadata || {}),
+      ...(invoiceData.customerEmail ? { customerEmail: invoiceData.customerEmail } : {})
+    };
 
-      if (!result.success || !result.data) {
-        throw new Error(result.error || 'Failed to create invoice');
+    // If amount or currency not provided, fetch plan to infer values
+    let amount = invoiceData.amount;
+    let currency = invoiceData.currency;
+    if (amount === undefined || currency === undefined) {
+      const planResp = await this.httpClient.get<ApiResponse<Plan>>(`/plans/${invoiceData.planId}`);
+      if (!planResp.data.success || !planResp.data.data) {
+        throw new Error(planResp.data.error || 'Failed to fetch plan for invoice');
       }
-
-      return result.data;
-    } catch (error) {
-      throw new Error(`Failed to create invoice: ${error instanceof Error ? error.message : String(error)}`);
+      const plan = planResp.data.data;
+      amount = amount !== undefined ? amount : plan.price;
+      currency = currency !== undefined ? currency : plan.currency;
     }
+
+    const payload: Record<string, any> = {
+      planId: invoiceData.planId,
+      amount,
+      currency,
+      wallet: invoiceData.wallet,
+      description: invoiceData.description,
+      dueDate: invoiceData.dueDate,
+      metadata
+    };
+
+    const response = await this.httpClient.post<ApiResponse<Invoice>>('/invoices', payload);
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to create invoice');
+    }
+    return response.data.data;
   }
 
   /**
    * Get an invoice by ID
    */
   async get(invoiceId: string): Promise<Invoice> {
-    try {
-      const result = await this.mockApi.getInvoice(invoiceId);
-
-      if (!result.success || !result.data) {
-        throw new Error(result.error || 'Invoice not found');
-      }
-
-      return result.data;
-    } catch (error) {
-      throw new Error(`Failed to get invoice: ${error instanceof Error ? error.message : String(error)}`);
+    const response = await this.httpClient.get<ApiResponse<Invoice>>(`/invoices/${invoiceId}`);
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Invoice not found');
     }
+    return response.data.data;
   }
 
   /**
    * List invoices
    */
   async list(options?: {
-    page?: number;
     limit?: number;
-    status?: 'unpaid' | 'processing' | 'paid' | 'failed' | 'expired';
+    offset?: number;
+    status?: 'pending' | 'paid' | 'cancelled' | 'overdue' | 'failed' | 'unpaid' | 'processing' | 'expired';
     planId?: string;
-    wallet?: string;
     startDate?: Date;
     endDate?: Date;
   }): Promise<Invoice[]> {
-    try {
-      const result = await this.mockApi.listInvoices();
+    const params: Record<string, any> = {};
+    if (options?.limit !== undefined) params.limit = options.limit;
+    if (options?.offset !== undefined) params.offset = options.offset;
+    if (options?.status) params.status = options.status;
+    if (options?.planId) params.planId = options.planId;
 
-      if (!result.success || !result.data) {
-        throw new Error(result.error || 'Failed to list invoices');
-      }
-
-      let invoices = result.data;
-
-      // Apply filters if provided
-      if (options?.status) {
-        invoices = invoices.filter((invoice: Invoice) => invoice.status === options.status);
-      }
-
-      if (options?.planId) {
-        invoices = invoices.filter((invoice: Invoice) => invoice.planId === options.planId);
-      }
-
-      if (options?.wallet) {
-        invoices = invoices.filter((invoice: Invoice) => invoice.wallet === options.wallet);
-      }
-
-      if (options?.startDate) {
-        invoices = invoices.filter((invoice: Invoice) => 
-          new Date(invoice.createdAt) >= options.startDate!
-        );
-      }
-
-      if (options?.endDate) {
-        invoices = invoices.filter((invoice: Invoice) => 
-          new Date(invoice.createdAt) <= options.endDate!
-        );
-      }
-
-      // Apply pagination if provided
-      if (options?.page && options?.limit) {
-        const startIndex = (options.page - 1) * options.limit;
-        const endIndex = startIndex + options.limit;
-        invoices = invoices.slice(startIndex, endIndex);
-      }
-
-      return invoices;
-    } catch (error) {
-      throw new Error(`Failed to list invoices: ${error instanceof Error ? error.message : String(error)}`);
+    const response = await this.httpClient.get<ApiResponse<Invoice[]>>('/invoices', { params });
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to list invoices');
     }
+    let invoices = response.data.data;
+
+    // Apply date filters client-side if provided
+    if (options?.startDate) {
+      invoices = invoices.filter((invoice: Invoice) => new Date(invoice.createdAt) >= options.startDate!);
+    }
+
+    if (options?.endDate) {
+      invoices = invoices.filter((invoice: Invoice) => new Date(invoice.createdAt) <= options.endDate!);
+    }
+
+    return invoices;
   }
 
   /**
    * Get invoice status
    */
-  async getStatus(invoiceId: string): Promise<{
-    id: string;
-    status: 'unpaid' | 'processing' | 'paid' | 'failed' | 'expired';
-    lastUpdated: Date;
-    transactionHash?: string;
-  }> {
+  async getStatus(invoiceId: string): Promise<Invoice['status']> {
     try {
       const invoice = await this.get(invoiceId);
-
-      return {
-        id: invoice.id,
-        status: invoice.status as 'unpaid' | 'processing' | 'paid' | 'failed' | 'expired',
-        lastUpdated: new Date(invoice.updatedAt),
-        transactionHash: invoice.metadata?.transactionHash as string | undefined
-      };
+      return invoice.status as Invoice['status'];
     } catch (error) {
       throw new Error(`Failed to get invoice status: ${error instanceof Error ? error.message : String(error)}`);
     }
@@ -146,7 +127,7 @@ export class InvoicesResource {
     }
   ): Promise<{
     id: string;
-    status: 'unpaid' | 'processing' | 'paid' | 'failed' | 'expired';
+    status: Invoice['status'];
     lastUpdated: Date;
     transactionHash?: string;
     timedOut: boolean;
@@ -162,13 +143,27 @@ export class InvoicesResource {
         const status = await this.getStatus(invoiceId);
 
         // If we have a target status and it matches, return immediately
-        if (targetStatus && status.status === targetStatus) {
-          return { ...status, timedOut: false };
+        if (targetStatus && status === targetStatus) {
+          const inv = await this.get(invoiceId);
+          return {
+            id: inv.id,
+            status: inv.status as Invoice['status'],
+            lastUpdated: new Date(inv.updatedAt),
+            transactionHash: inv.metadata?.transactionHash as string | undefined,
+            timedOut: false
+          };
         }
 
-        // If status is final (not unpaid or processing), return
-        if (status.status === 'paid' || status.status === 'failed' || status.status === 'expired') {
-          return { ...status, timedOut: false };
+        // If status is final (paid, failed, expired, cancelled, overdue), return
+        if (status === 'paid' || status === 'failed' || status === 'cancelled' || status === 'overdue') {
+          const inv = await this.get(invoiceId);
+          return {
+            id: inv.id,
+            status: inv.status as Invoice['status'],
+            lastUpdated: new Date(inv.updatedAt),
+            transactionHash: inv.metadata?.transactionHash as string | undefined,
+            timedOut: false
+          };
         }
 
         // Wait before next poll
@@ -179,61 +174,34 @@ export class InvoicesResource {
       }
     }
 
-    // Timeout reached, get final status
-    try {
-      const finalStatus = await this.getStatus(invoiceId);
-      return { ...finalStatus, timedOut: true };
-    } catch (error) {
-      throw new Error(`Failed to poll invoice status: ${error instanceof Error ? error.message : String(error)}`);
-    }
+    // Timeout reached
+    throw new Error('Timeout waiting for status');
   }
 
   /**
    * Mark invoice as paid (for testing purposes)
    */
   async markAsPaid(invoiceId: string, transactionHash?: string): Promise<Invoice> {
-    try {
-      const result = await this.mockApi.markInvoiceAsPaid(invoiceId, transactionHash);
-
-      if (!result.success || !result.data) {
-        throw new Error(result.error || 'Failed to mark invoice as paid');
-      }
-
-      return result.data;
-    } catch (error) {
-      throw new Error(`Failed to mark invoice as paid: ${error instanceof Error ? error.message : String(error)}`);
+    const response = await this.httpClient.post<ApiResponse<Invoice>>(`/invoices/${invoiceId}/pay`, {
+      transactionHash
+    });
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to mark invoice as paid');
     }
+    return response.data.data;
   }
 
   /**
    * Cancel an invoice
    */
   async cancel(invoiceId: string, reason?: string): Promise<Invoice> {
-    try {
-      // Get current invoice
-      const invoice = await this.get(invoiceId);
-
-      if (invoice.status === 'paid') {
-        throw new Error('Cannot cancel a paid invoice');
-      }
-
-      // For now, just update status to cancelled
-      // In a real implementation, this would make an API call
-      const updatedInvoice: Invoice = {
-        ...invoice,
-        status: 'cancelled',
-        updatedAt: new Date(),
-        metadata: {
-          ...invoice.metadata,
-          cancelReason: reason || 'Cancelled by user'
-        }
-      };
-
-      console.warn('Invoice cancellation is simulated in mock mode');
-      return updatedInvoice;
-    } catch (error) {
-      throw new Error(`Failed to cancel invoice: ${error instanceof Error ? error.message : String(error)}`);
+    const response = await this.httpClient.post<ApiResponse<Invoice>>(`/invoices/${invoiceId}/cancel`, {
+      reason
+    });
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to cancel invoice');
     }
+    return response.data.data;
   }
 
   /**

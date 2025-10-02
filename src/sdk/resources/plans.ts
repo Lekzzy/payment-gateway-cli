@@ -1,209 +1,108 @@
 import { AxiosInstance } from 'axios';
-import { Plan, ApiResponse, PaginatedResponse } from '../../types/index';
-import { MockApiService } from '../../utils/mockApi';
+import { Plan, ApiResponse } from '../../types/index';
 
 export class PlansResource {
   private httpClient: AxiosInstance;
-  private mockApi: MockApiService;
 
   constructor(httpClient: AxiosInstance) {
     this.httpClient = httpClient;
-    this.mockApi = MockApiService.getInstance();
   }
 
-  /**
-   * Create a new subscription plan
-   */
   async create(planData: {
     name: string;
     price: number;
     currency?: string;
-    interval: 'monthly' | 'yearly' | 'weekly' | 'daily';
+    interval: 'monthly' | 'yearly' | 'weekly' | 'daily' | 'month' | 'year' | 'week' | 'day';
     description?: string;
     features?: string[];
+    intervalCount?: number;
+    trialDays?: number;
+    metadata?: Record<string, any>;
   }): Promise<Plan> {
-    try {
-      // For now, use mock API - this will be replaced with real API calls
-      const result = await this.mockApi.createPlan({
-        ...planData,
-        currency: planData.currency || 'USD'
-      });
-
-      if (!result.success || !result.data) {
-        throw new Error(result.error || 'Failed to create plan');
-      }
-
-      return result.data;
-    } catch (error) {
-      throw new Error(`Failed to create plan: ${error instanceof Error ? error.message : String(error)}`);
+    const response = await this.httpClient.post<ApiResponse<Plan>>('/plans', {
+      ...planData,
+      currency: planData.currency || 'USD'
+    });
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to create plan');
     }
+    return response.data.data;
   }
 
-  /**
-   * Get a plan by ID
-   */
   async get(planId: string): Promise<Plan> {
-    try {
-      const result = await this.mockApi.getPlan(planId);
-
-      if (!result.success || !result.data) {
-        throw new Error(result.error || 'Plan not found');
-      }
-
-      return result.data;
-    } catch (error) {
-      throw new Error(`Failed to get plan: ${error instanceof Error ? error.message : String(error)}`);
+    const response = await this.httpClient.get<ApiResponse<Plan>>(`/plans/${planId}`);
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Plan not found');
     }
+    return response.data.data;
   }
 
-  /**
-   * List all plans
-   */
   async list(options?: {
-    page?: number;
     limit?: number;
-    currency?: string;
-    interval?: string;
+    offset?: number;
+    active?: boolean;
+    tier?: string;
   }): Promise<Plan[]> {
-    try {
-      const result = await this.mockApi.listPlans();
+    const params: Record<string, any> = {};
+    if (options?.limit !== undefined) params.limit = options.limit;
+    if (options?.offset !== undefined) params.offset = options.offset;
+    if (options?.active !== undefined) params.active = options.active;
+    if (options?.tier) params.tier = options.tier;
 
-      if (!result.success || !result.data) {
-        throw new Error(result.error || 'Failed to list plans');
-      }
-
-      let plans = result.data;
-
-      // Apply filters if provided
-      if (options?.currency) {
-        plans = plans.filter((plan: Plan) => plan.currency === options.currency);
-      }
-
-      if (options?.interval) {
-        plans = plans.filter((plan: Plan) => plan.interval === options.interval);
-      }
-
-      // Apply pagination if provided
-      if (options?.page && options?.limit) {
-        const startIndex = (options.page - 1) * options.limit;
-        const endIndex = startIndex + options.limit;
-        plans = plans.slice(startIndex, endIndex);
-      }
-
-      return plans;
-    } catch (error) {
-      throw new Error(`Failed to list plans: ${error instanceof Error ? error.message : String(error)}`);
+    const response = await this.httpClient.get<ApiResponse<Plan[]>>('/plans', { params });
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to list plans');
     }
+    return response.data.data;
   }
 
-  /**
-   * Update a plan (future enhancement)
-   */
   async update(planId: string, updates: Partial<{
     name: string;
     description: string;
     features: string[];
+    price: number;
+    currency: string;
+    interval: 'monthly' | 'yearly' | 'weekly' | 'daily' | 'month' | 'year' | 'week' | 'day';
+    active: boolean;
+    intervalCount: number;
+    trialDays: number;
+    metadata: Record<string, any>;
   }>): Promise<Plan> {
-    try {
-      // Get current plan
-      const currentPlan = await this.get(planId);
-
-      // For now, just return the current plan with a warning
-      // In a real implementation, this would make an API call to update the plan
-      console.warn('Plan update is not yet implemented in the mock API');
-      
-      return {
-        ...currentPlan,
-        ...updates,
-        updatedAt: new Date()
-      };
-    } catch (error) {
-      throw new Error(`Failed to update plan: ${error instanceof Error ? error.message : String(error)}`);
+    const response = await this.httpClient.put<ApiResponse<Plan>>(`/plans/${planId}`, updates);
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.error || 'Failed to update plan');
     }
+    return response.data.data;
   }
 
-  /**
-   * Delete a plan (future enhancement)
-   */
   async delete(planId: string): Promise<{ success: boolean; message: string }> {
-    try {
-      // Check if plan exists
-      await this.get(planId);
-
-      // For now, just return success message
-      // In a real implementation, this would make an API call to delete the plan
-      console.warn('Plan deletion is not yet implemented in the mock API');
-      
-      return {
-        success: true,
-        message: 'Plan deletion would be processed (mock mode)'
-      };
-    } catch (error) {
-      throw new Error(`Failed to delete plan: ${error instanceof Error ? error.message : String(error)}`);
+    const response = await this.httpClient.delete<ApiResponse<unknown>>(`/plans/${planId}`);
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Failed to delete plan');
     }
+    return { success: true, message: response.data.message || 'Plan deleted successfully' };
   }
 
-  /**
-   * Get plan statistics (future enhancement)
-   */
-  async getStats(planId: string): Promise<{
-    totalInvoices: number;
-    totalRevenue: number;
-    activeSubscriptions: number;
-    conversionRate: number;
-  }> {
-    try {
-      // Check if plan exists
-      await this.get(planId);
-
-      // Return mock statistics
-      return {
-        totalInvoices: Math.floor(Math.random() * 100) + 10,
-        totalRevenue: Math.floor(Math.random() * 10000) + 1000,
-        activeSubscriptions: Math.floor(Math.random() * 50) + 5,
-        conversionRate: Math.random() * 0.3 + 0.1 // 10-40%
-      };
-    } catch (error) {
-      throw new Error(`Failed to get plan stats: ${error instanceof Error ? error.message : String(error)}`);
-    }
+  async getStats(): Promise<{ total: number; active: number; inactive: number }> {
+    const plans = await this.list();
+    const total = plans.length;
+    const active = plans.filter(p => p.active).length;
+    const inactive = total - active;
+    return { total, active, inactive };
   }
 
-  /**
-   * Search plans by name or description
-   */
-  async search(query: string, options?: {
-    limit?: number;
-    currency?: string;
-    interval?: string;
-  }): Promise<Plan[]> {
-    try {
-      const allPlans = await this.list();
-      
-      // Filter plans by search query
-      const filteredPlans = allPlans.filter(plan => 
-        plan.name.toLowerCase().includes(query.toLowerCase()) ||
-        (plan.description && plan.description.toLowerCase().includes(query.toLowerCase()))
-      );
+  async search(query: string, options?: { limit?: number; currency?: string; interval?: string }): Promise<Plan[]> {
+    const allPlans = await this.list();
+    const filteredPlans = allPlans.filter(plan =>
+      plan.name.toLowerCase().includes(query.toLowerCase()) ||
+      (plan.description && plan.description.toLowerCase().includes(query.toLowerCase())) ||
+      (plan.metadata?.tier && String(plan.metadata.tier).toLowerCase().includes(query.toLowerCase()))
+    );
 
-      // Apply additional filters
-      let results = filteredPlans;
-
-      if (options?.currency) {
-        results = results.filter(plan => plan.currency === options.currency);
-      }
-
-      if (options?.interval) {
-        results = results.filter(plan => plan.interval === options.interval);
-      }
-
-      // Apply limit
-      if (options?.limit) {
-        results = results.slice(0, options.limit);
-      }
-
-      return results;
-    } catch (error) {
-      throw new Error(`Failed to search plans: ${error instanceof Error ? error.message : String(error)}`);
-    }
+    let results = filteredPlans;
+    if (options?.currency) results = results.filter(plan => plan.currency === options.currency);
+    if (options?.interval) results = results.filter(plan => plan.interval === options.interval);
+    if (options?.limit) results = results.slice(0, options.limit);
+    return results;
   }
 }

@@ -405,10 +405,11 @@ export class FixtureManager {
           plan
         };
         break;
-      case 'refund.completed':
+      case 'refund.completed': {
         const refund = this.createRandomRefund(invoice.id, { status: 'completed' });
         eventData = { refund, invoice, plan };
         break;
+      }
       case 'subscription.cancelled':
         eventData = {
           subscription: {

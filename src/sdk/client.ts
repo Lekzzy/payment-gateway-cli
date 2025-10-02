@@ -29,8 +29,8 @@ export class BillingClient {
       throw new Error('API key is required');
     }
 
-    if (!this.options.apiKey.startsWith('sk_')) {
-      throw new Error('Invalid API key format. API key should start with "sk_"');
+    if (!(this.options.apiKey.startsWith('test_') || this.options.apiKey.startsWith('live_'))) {
+      throw new Error('API key must start with test_ or live_');
     }
 
     // Create HTTP client
@@ -48,8 +48,7 @@ export class BillingClient {
     // Add request interceptor for retries
     this.setupRetryInterceptor();
 
-    // Add response interceptor for error handling
-    this.setupResponseInterceptor();
+    // Response interceptor not altering payload to preserve API shapes
 
     // Initialize resource instances
     this.plans = new PlansResource(this.httpClient);
@@ -98,45 +97,17 @@ export class BillingClient {
    * Set up response interceptor for consistent error handling
    */
   private setupResponseInterceptor(): void {
-    this.httpClient.interceptors.response.use(
-      (response) => {
-        // Transform successful responses to match our API format
-        return {
-          ...response,
-          data: {
-            success: true,
-            data: response.data,
-            message: 'Request successful'
-          }
-        };
-      },
-      (error) => {
-        // Transform error responses to match our API format
-        const errorResponse = {
-          success: false,
-          error: error.response?.data?.error || error.message || 'Unknown error',
-          status: error.response?.status || 0
-        };
-
-        // Create a new error with our standardized format
-        const billingError = new Error(errorResponse.error);
-        (billingError as any).response = {
-          data: errorResponse,
-          status: errorResponse.status
-        };
-
-        return Promise.reject(billingError);
-      }
-    );
+    // Intentionally left as pass-through if needed later
   }
 
   /**
    * Get client configuration
    */
-  getConfig(): Omit<Required<BillingClientOptions>, 'apiKey'> & { apiKey: string } {
+  getConfig(): { apiKey: string; baseUrl: string; timeout: number } {
     return {
-      ...this.options,
-      apiKey: this.options.apiKey.substring(0, 10) + '...' // Mask API key
+      apiKey: this.options.apiKey,
+      baseUrl: this.options.baseUrl,
+      timeout: this.options.timeout
     };
   }
 
@@ -147,8 +118,8 @@ export class BillingClient {
     try {
       const startTime = Date.now();
       
-      // Make a simple request to test connectivity
-      await this.httpClient.get('/health');
+      // Make a simple request to test connectivity using a stable endpoint
+      await this.httpClient.get('/plans');
       
       const latency = Date.now() - startTime;
       
@@ -169,8 +140,8 @@ export class BillingClient {
    * Update API key
    */
   updateApiKey(apiKey: string): void {
-    if (!apiKey.startsWith('sk_')) {
-      throw new Error('Invalid API key format. API key should start with "sk_"');
+    if (!(apiKey.startsWith('test_') || apiKey.startsWith('live_'))) {
+      throw new Error('API key must start with test_ or live_');
     }
 
     this.options.apiKey = apiKey;
@@ -183,6 +154,31 @@ export class BillingClient {
   updateBaseUrl(baseUrl: string): void {
     this.options.baseUrl = baseUrl;
     this.httpClient.defaults.baseURL = baseUrl;
+  }
+
+  /**
+   * Update client configuration
+   */
+  updateConfig(options: Partial<BillingClientOptions>): void {
+    if (!options) return;
+
+    if (options.apiKey !== undefined) {
+      this.updateApiKey(options.apiKey);
+    }
+
+    if (options.baseUrl !== undefined) {
+      this.updateBaseUrl(options.baseUrl);
+    }
+
+    if (options.timeout !== undefined) {
+      this.options.timeout = options.timeout;
+      this.httpClient.defaults.timeout = options.timeout;
+    }
+
+    if (options.retries !== undefined) {
+      this.options.retries = options.retries;
+      // Retry interceptor reads this.options.retries dynamically
+    }
   }
 
   /**

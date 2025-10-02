@@ -656,6 +656,21 @@ await client.invoices.simulatePayment('inv_123', {
   success: true,
   delay: 1000
 });
+
+// Get invoice status (returns a status string)
+const status = await client.invoices.getStatus('inv_123'); // e.g., 'paid'
+
+// Poll invoice status (throws on timeout)
+try {
+  const finalStatus = await client.invoices.pollStatus('inv_123', { timeoutMs: 5000, intervalMs: 250 });
+  console.log('Final status:', finalStatus);
+} catch (err) {
+  if (err instanceof Error && err.message.includes('Timeout waiting for status')) {
+    console.error('Polling timed out');
+  } else {
+    throw err;
+  }
+}
 ```
 
 ### Refunds Resource
@@ -682,6 +697,9 @@ await client.refunds.updateStatus('ref_123', {
   status: 'completed',
   processed_at: new Date().toISOString()
 });
+
+// Check if an invoice can be refunded (returns boolean)
+const canRefund = await client.refunds.canRefund('inv_123'); // true | false
 ```
 
 ### Webhooks Resource
@@ -720,6 +738,18 @@ try {
 }
 ```
 
+### Connectivity Check
+
+```typescript
+// Tests connectivity against a stable endpoint
+const result = await client.testConnection();
+if (result.success) {
+  console.log(`Connected. Latency: ${result.latency}ms`);
+} else {
+  console.error('Connection failed:', result.message);
+}
+```
+
 ### TypeScript Support
 
 The SDK includes full TypeScript definitions:
@@ -736,7 +766,7 @@ const invoice: Invoice = await client.invoices.get('inv_123');
 The test API server provides additional endpoints for development and testing.
 
 ### Base URL
-`http://localhost:3002`
+`http://localhost:${process.env.TEST_API_PORT || 3002}`
 
 ### Test Utilities
 
