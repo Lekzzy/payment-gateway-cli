@@ -71,6 +71,17 @@ export interface DiscordConfig {
   logLevel?: 'debug' | 'info' | 'warn' | 'error';
 }
 
+// Telegram adapter types
+export interface TelegramConfig {
+  botToken: string;
+  adminChatId: string; // chat id for admin alerts
+  planGroupMapping: Record<string, { chatId: string; title?: string; createdAt?: Date }>; // planId -> group/channel chat id
+  webhookSecret?: string;
+  retryAttempts?: number;
+  retryDelay?: number;
+  logLevel?: 'debug' | 'info' | 'warn' | 'error';
+}
+
 export interface ApiResponse<T = any> {
   success: boolean;
   data?: T;

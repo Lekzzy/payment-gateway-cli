@@ -1042,8 +1042,8 @@ app.use((req, res, next) => {
 If you're still experiencing issues after following this guide:
 
 1. **Check the logs** with debug mode enabled
-2. **Search existing issues** in the GitHub repository
-3. **Create a new issue** with:
+2. **Search existing issues** in the project issue tracker
+3. **Create a new support ticket** with:
    - Detailed error messages
    - Steps to reproduce
    - Environment information

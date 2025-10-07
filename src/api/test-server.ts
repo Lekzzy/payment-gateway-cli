@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import { FixtureManager, SAMPLE_PLANS, SAMPLE_INVOICES, SAMPLE_REFUNDS, SAMPLE_WEBHOOK_EVENTS } from '../utils/fixtures';
 import { WebhookVerifier } from '../utils/webhook';
 import { Plan, Invoice, Refund, WebhookEvent } from '../types/index';
+import { TelegramWebhookListener } from '../telegram/webhook-listener';
 
 export class TestApiServer {
   private app: express.Application;
@@ -16,6 +17,7 @@ export class TestApiServer {
   private invoices: Invoice[] = [...SAMPLE_INVOICES];
   private refunds: Refund[] = [...SAMPLE_REFUNDS];
   private webhookEvents: WebhookEvent[] = [...SAMPLE_WEBHOOK_EVENTS];
+  private telegramListener: TelegramWebhookListener = new TelegramWebhookListener();
 
   constructor(port: number = 3002) {
     this.app = express();
@@ -29,7 +31,7 @@ export class TestApiServer {
   private setupWebhookRoute(): void {
     // Webhook receiver endpoint - must be set up before global JSON middleware
     // to capture raw body for signature verification
-    this.app.post('/api/v1/webhooks', express.raw({type: 'application/json'}), (req: Request, res: Response) => {
+    this.app.post('/api/v1/webhooks', express.raw({type: 'application/json'}), async (req: Request, res: Response) => {
       try {
         // API key validation for webhook endpoint
         const rawApiKey = req.headers['x-api-key'] || req.headers['authorization']?.replace('Bearer ', '');
@@ -91,6 +93,13 @@ export class TestApiServer {
 
         // Store the webhook event
         this.webhookEvents.push(webhookEvent);
+
+        // Dispatch to Telegram listener for supported events
+        try {
+          await this.telegramListener.handleEvent({ type: webhookEvent.type, data: webhookEvent.data });
+        } catch (err) {
+          console.warn('Telegram listener error:', err instanceof Error ? err.message : err);
+        }
 
         res.json({
           success: true,
@@ -215,7 +224,23 @@ export class TestApiServer {
     this.setupInvoiceRoutes();
     this.setupRefundRoutes();
     this.setupWebhookRoutes();
+    this.setupTelegramWebhookRoute();
     this.setupTestUtilityRoutes();
+  }
+
+  private setupTelegramWebhookRoute(): void {
+    // Telegram webhook endpoint for bot updates
+    this.app.post('/webhook/telegram', express.json(), async (req: Request, res: Response) => {
+      try {
+        const update = req.body;
+        // Minimal echo and logging; real handling would validate a secret and process commands
+        console.log('Telegram webhook update:', JSON.stringify(update));
+        res.json({ ok: true });
+      } catch (error) {
+        console.error('Telegram webhook error:', error);
+        res.status(500).json({ ok: false, error: 'Internal error' });
+      }
+    });
   }
 
   private setupPlanRoutes(): void {

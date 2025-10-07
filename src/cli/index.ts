@@ -8,6 +8,7 @@ import { invoiceCommands } from './commands/invoice';
 import { refundCommands } from './commands/refund';
 import { webhookCommands } from './commands/webhook';
 import { discordCommand } from './commands/discord';
+import { adapterCommand } from './commands/telegram';
 
 const program = new Command();
 
@@ -44,6 +45,7 @@ invoiceCommands(program);
 refundCommands(program);
 webhookCommands(program);
 program.addCommand(discordCommand);
+program.addCommand(adapterCommand);
 
 // Handle unknown commands
 program.on('command:*', () => {

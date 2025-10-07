@@ -21,6 +21,7 @@ payment-gateway-cli/
 │   ├── sdk/                 # Node.js SDK
 │   ├── api/                 # API server and endpoints
 │   ├── discord/             # Discord integration
+│   ├── telegram/            # Telegram integration
 │   ├── types/               # TypeScript type definitions
 │   ├── utils/               # Shared utilities
 │   └── tests/               # Test suites
@@ -111,6 +112,10 @@ npm run test:api         # Test API server
 # Discord integration
 npm run discord:listen   # Start webhook listener
 npm run discord:test     # Test Discord connection
+
+# Telegram integration
+npm run dev -- adapter telegram init    # Configure Telegram adapter
+npm run dev -- adapter telegram test    # Test Telegram adapter
 
 # Clean build artifacts
 npm run clean
@@ -431,11 +436,10 @@ test(api): add integration tests for refunds
 - **Documentation**: Check the `docs/` directory
 - **Examples**: Look at `docs/examples/`
 - **Tests**: Review test files for usage patterns
-- **Issues**: Search existing GitHub issues
+- **Issues**: Search existing issues in the project tracker
 
 ### Communication
-- **GitHub Issues**: For bugs and feature requests
-- **Discussions**: For questions and ideas
+- **Community Forum**: For questions and ideas
 - **Discord**: For real-time community support
 
 ### Debugging Resources
@@ -468,4 +472,4 @@ test(api): add integration tests for refunds
 
 ---
 
-Welcome to the team! 🎉 We're excited to have you contribute to this project. If you have any questions, don't hesitate to ask in our community channels or create an issue on GitHub.
+Welcome to the team! 🎉 We're excited to have you contribute to this project. If you have any questions, don't hesitate to ask in our community channels.

@@ -84,6 +84,7 @@ billing discord listen
 - [Node.js SDK Guide](./docs/sdk-guide.md)
 - [API Reference](./docs/api-reference.md)
 - [Discord Integration](./docs/discord-integration.md)
+- [Telegram Integration](./docs/telegram-integration.md)
 
 ### Development
 - [Developer Onboarding](./docs/developer-onboarding.md)
@@ -175,6 +176,20 @@ billing discord listen
 
 # Test Discord connection
 billing discord test
+```
+
+### Telegram Integration
+```bash
+# Configure Telegram adapter
+billing adapter telegram init
+
+# Test connection and simulate actions
+billing adapter telegram test --user <chatId> --plan <planId>
+
+# Send notifications
+billing adapter telegram notify --admin --text "System alert"
+billing adapter telegram notify --plan <planId> --text "Plan update"
+billing adapter telegram notify --chat <chatId> --text "Direct message"
 ```
 
 ## 🔧 Node.js SDK
@@ -396,7 +411,6 @@ MIT License - see [LICENSE](./LICENSE) file for details.
 ## 🆘 Support
 
 - **Documentation**: Check the [docs](./docs/) directory
-- **Issues**: Report bugs on GitHub Issues
 - **Discord**: Join our Discord server for community support
 - **Email**: Contact support@yourbilling.com
 
