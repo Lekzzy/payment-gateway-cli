@@ -160,7 +160,7 @@ export class DiscordWebhookListener {
           signature: 'test_signature'
         };
 
-        const result = await this.processWebhookEvent(mockEvent);
+        const result = await this.handleEvent(mockEvent);
         
         res.json({
           success: true,
@@ -298,13 +298,13 @@ export class DiscordWebhookListener {
     }
 
     // Process the event
-    return await this.processWebhookEvent(event);
+    return await this.handleEvent(event);
   }
 
   /**
    * Process webhook event and handle Discord role management
    */
-  private async processWebhookEvent(event: WebhookEvent): Promise<ProcessedWebhookResult> {
+  public async handleEvent(event: WebhookEvent): Promise<ProcessedWebhookResult> {
     console.log(`Processing webhook event: ${event.type}`, event.data);
 
     if (!this.discordManager) {

@@ -24,6 +24,29 @@ export class ApiServer {
    * Set up middleware
    */
   private setupMiddleware(): void {
+    // Webhook raw body capture must be registered before JSON parsers
+    const apiPrefix = '/api/v1';
+    try {
+      const webhookSecret = process.env.WEBHOOK_SECRET || 'test_webhook_secret_key';
+      const { default: createWebhooksRouter } = require('./routes/webhooks');
+      // Mount raw parser for this route specifically
+      this.app.use(`${apiPrefix}`, (req, res, next) => {
+        if (req.method === 'POST' && req.path === '/webhooks') {
+          // Attach rawBody for verification later
+          let data: Buffer[] = [];
+          req.on('data', (chunk) => data.push(chunk));
+          req.on('end', () => {
+            (req as any).rawBody = Buffer.concat(data);
+            next();
+          });
+        } else {
+          next();
+        }
+      });
+      this.app.use(`${apiPrefix}`, createWebhooksRouter(webhookSecret));
+    } catch (e) {
+      console.warn('Webhook router setup failed:', e instanceof Error ? e.message : e);
+    }
     // Security middleware
     this.app.use(helmet({
       contentSecurityPolicy: {
@@ -243,6 +266,7 @@ export class ApiServer {
           console.log(`📖 API Documentation: http://localhost:${this.port}/docs`);
           console.log(`❤️  Health Check: http://localhost:${this.port}/health`);
           console.log(`🔗 Base URL: http://localhost:${this.port}/api/v1`);
+          console.log(`🪝 Webhooks:       http://localhost:${this.port}/api/v1/webhooks`);
           resolve();
         });
 

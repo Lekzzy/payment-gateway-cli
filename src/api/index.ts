@@ -30,6 +30,7 @@ async function startServer() {
     console.log(`  POST /api/v1/invoices/:id/simulate-payment - Simulate payment (dev only)`);
     console.log(`  GET  /health                       - Health check`);
     console.log(`  GET  /docs                         - API documentation`);
+    console.log(`  POST /api/v1/webhooks              - Receive and dispatch billing webhooks`);
     console.log('');
     
     // Check if configuration exists
