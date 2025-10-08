@@ -55,7 +55,7 @@ export interface Refund {
 
 export interface WebhookEvent {
   id: string;
-  type: 'invoice.paid' | 'invoice.failed' | 'subscription.expired' | 'refund.completed' | 'subscription.cancelled';
+  type: 'invoice.paid' | 'invoice.failed' | 'subscription.expired' | 'refund.completed' | 'subscription.cancelled' | 'subscription.renewed';
   data: any;
   timestamp: Date;
   signature: string;
@@ -69,6 +69,8 @@ export interface DiscordConfig {
   retryAttempts?: number;
   retryDelay?: number;
   logLevel?: 'debug' | 'info' | 'warn' | 'error';
+  proSubscriptionDuration?: number; // Duration in minutes (default: 10)
+  proNotifyBeforeExpiry?: number; // Minutes before expiry to notify (default: 2)
 }
 
 // Telegram adapter types

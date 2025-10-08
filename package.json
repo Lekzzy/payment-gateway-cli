@@ -16,7 +16,7 @@
     "api:build": "tsc && node dist/api/index.js",
     "test:api": "ts-node src/api/test-index.ts",
     "test:api:build": "tsc && node dist/api/test-index.js",
-    "discord:listen": "ts-node -e \"import('./src/discord/webhook-listener').then(m => m.DiscordWebhookListener)\"",
+    "discord:listen": "npm run build && node dist/cli/index.js discord listen",
     "discord:test": "billing discord test",
     "test": "jest",
     "test:watch": "jest --watch",

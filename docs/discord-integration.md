@@ -29,6 +29,7 @@ The Discord integration automatically manages user roles based on billing events
 - `subscription.expired` → Revoke role
 - `subscription.cancelled` → Revoke role
 - `refund.completed` → Revoke role
+- `subscription.renewed` → Ensure role is retained (grant if missing)
 
 ## ✅ Prerequisites
 
@@ -259,6 +260,7 @@ npm run discord:listen
 📡 Server running on http://localhost:3001
 🔗 Webhook endpoint: http://localhost:3001/webhook
 🎯 Listening for events: invoice.paid, subscription.expired, refund.completed, subscription.cancelled
+ , subscription.renewed
 
 📋 Plan-Role Mappings:
    • Basic Plan → @Basic

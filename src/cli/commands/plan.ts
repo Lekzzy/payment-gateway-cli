@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import * as inquirer from 'inquirer';
-import * as chalk from 'chalk';
+import chalk from 'chalk';
 import { configManager } from '../../utils/config';
 import { MockApiService } from '../../utils/mockApi';
 import { Plan } from '../../types/index';

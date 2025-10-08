@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, Guild, GuildMember, Role } from 'discord.js';
+import { Client, GatewayIntentBits, Guild, GuildMember, Role, SlashCommandBuilder, PermissionsBitField } from 'discord.js';
 import { DiscordConfig } from '../types/index';
 import { DiscordConfigManager } from './config';
 
@@ -34,6 +34,7 @@ export class DiscordRoleManager {
         this.guild = await this.client.guilds.fetch(this.config.guildId);
         this.isReady = true;
         console.log(`Connected to guild: ${this.guild.name}`);
+        await this.registerSlashCommands();
       } catch (error) {
         console.error('Failed to fetch guild:', error);
       }
@@ -46,6 +47,52 @@ export class DiscordRoleManager {
     this.client.on('disconnect', () => {
       console.log('Discord client disconnected');
       this.isReady = false;
+    });
+
+    this.client.on('interactionCreate', async (interaction) => {
+      if (!interaction.isChatInputCommand()) return;
+      try {
+        if (!this.isReady || !this.guild) return;
+
+        if (interaction.commandName === 'billing-status') {
+          const userId = interaction.user.id;
+          const rolesResult = await this.getUserRoles(userId);
+          if (rolesResult.success && rolesResult.roles && rolesResult.roles.length) {
+            const mapped = rolesResult.roles.filter(r => r.planId);
+            const content = mapped.length
+              ? mapped.map(r => `• ${r.name}${r.planId ? ` (${r.planId})` : ''}`).join('\n')
+              : 'No billing roles found.';
+            await interaction.reply({ content, ephemeral: true });
+          } else {
+            await interaction.reply({ content: rolesResult.message || 'No billing information found.', ephemeral: true });
+          }
+        } else if (interaction.commandName === 'billing-grant') {
+          if (!interaction.memberPermissions?.has(PermissionsBitField.Flags.ManageRoles)) {
+            await interaction.reply({ content: 'Missing Manage Roles permission.', ephemeral: true });
+            return;
+          }
+          const planId = interaction.options.getString('plan', true);
+          const targetUser = interaction.options.getUser('user', true);
+          const result = await this.grantRole(targetUser.id, planId);
+          await interaction.reply({ content: result.message, ephemeral: true });
+        } else if (interaction.commandName === 'billing-revoke') {
+          if (!interaction.memberPermissions?.has(PermissionsBitField.Flags.ManageRoles)) {
+            await interaction.reply({ content: 'Missing Manage Roles permission.', ephemeral: true });
+            return;
+          }
+          const planId = interaction.options.getString('plan', true);
+          const targetUser = interaction.options.getUser('user', true);
+          const result = await this.revokeRole(targetUser.id, planId);
+          await interaction.reply({ content: result.message, ephemeral: true });
+        }
+      } catch (error) {
+        try {
+          if (interaction.isRepliable()) {
+            await interaction.reply({ content: 'Command failed.', ephemeral: true });
+          }
+        } catch {}
+        console.error('Slash command handling error:', error);
+      }
     });
   }
 
@@ -88,6 +135,32 @@ export class DiscordRoleManager {
     }
   }
 
+  private async registerSlashCommands(): Promise<void> {
+    try {
+      if (!this.guild) return;
+      const commands = [
+        new SlashCommandBuilder()
+          .setName('billing-status')
+          .setDescription('Show your billing-linked roles'),
+        new SlashCommandBuilder()
+          .setName('billing-grant')
+          .setDescription('Grant a plan role to a user')
+          .addStringOption(option => option.setName('plan').setDescription('Plan ID').setRequired(true))
+          .addUserOption(option => option.setName('user').setDescription('Target user').setRequired(true)),
+        new SlashCommandBuilder()
+          .setName('billing-revoke')
+          .setDescription('Revoke a plan role from a user')
+          .addStringOption(option => option.setName('plan').setDescription('Plan ID').setRequired(true))
+          .addUserOption(option => option.setName('user').setDescription('Target user').setRequired(true))
+      ].map(c => c.toJSON());
+
+      await this.guild.commands.set(commands as any);
+      console.log('Registered Discord slash commands for guild');
+    } catch (error) {
+      console.error('Failed to register slash commands:', error);
+    }
+  }
+
   /**
    * Grant role to user based on plan
    */
@@ -125,6 +198,16 @@ export class DiscordRoleManager {
         return {
           success: false,
           message: `User not found in guild: ${userId}`
+        };
+      }
+
+      // Check bot's role position
+      const botMember = await this.guild.members.fetch(this.client.user!.id);
+      const botHighestRole = botMember.roles.highest;
+      if (botHighestRole.position <= role.position) {
+        return {
+          success: false,
+          message: `Cannot manage role '${role.name}' due to role hierarchy. Bot's highest role must be above the role to manage.`
         };
       }
 
@@ -194,6 +277,16 @@ export class DiscordRoleManager {
         return {
           success: false,
           message: `User not found in guild: ${userId}`
+        };
+      }
+
+      // Check bot's role position
+      const botMember = await this.guild.members.fetch(this.client.user!.id);
+      const botHighestRole = botMember.roles.highest;
+      if (botHighestRole.position <= role.position) {
+        return {
+          success: false,
+          message: `Cannot manage role '${role.name}' due to role hierarchy. Bot's highest role must be above the role to manage.`
         };
       }
 
@@ -445,5 +538,43 @@ export class DiscordRoleManager {
       name: this.guild.name,
       memberCount: this.guild.memberCount
     };
+  }
+
+  /**
+   * Send a direct message to a user
+   */
+  async notifyUserDM(userId: string, message: string): Promise<{
+    success: boolean;
+    message: string;
+  }> {
+    try {
+      if (!this.isReady || !this.guild) {
+        throw new Error('Discord client not ready');
+      }
+
+      // Fetch the member
+      const member = await this.guild.members.fetch(userId);
+      if (!member) {
+        return {
+          success: false,
+          message: `User not found in guild: ${userId}`
+        };
+      }
+
+      // Send DM with retry logic
+      await this.retryOperation(async () => {
+        await member.send(message);
+      });
+
+      return {
+        success: true,
+        message: 'Direct message sent successfully'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `Failed to send DM: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
+    }
   }
 }

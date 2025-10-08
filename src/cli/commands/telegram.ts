@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import inquirer from 'inquirer';
-import * as chalk from 'chalk';
+import chalk from 'chalk';
 import { TelegramConfigManager } from '../../telegram/config';
 import { TelegramAdapter } from '../../telegram/client';
 

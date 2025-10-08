@@ -18,6 +18,8 @@ discordCommand
   .option('--bot-token <token>', 'Discord bot token')
   .option('--guild-id <id>', 'Discord guild (server) ID')
   .option('--webhook-secret <secret>', 'Webhook verification secret')
+  .option('--pro-duration <minutes>', 'Pro subscription duration in minutes (1-60)')
+  .option('--pro-notify <minutes>', 'Minutes before expiry to notify (1-59)')
   .action(async (options) => {
     try {
       console.log('🔧 Configuring Discord integration...\n');
@@ -34,7 +36,9 @@ discordCommand
            webhookSecret: '',
            planRoleMapping: {},
            retryAttempts: 3,
-           retryDelay: 1000
+           retryDelay: 1000,
+           proSubscriptionDuration: 10,
+           proNotifyBeforeExpiry: 2
          };
       }
 
@@ -60,6 +64,29 @@ discordCommand
            message: 'Webhook verification secret:',
            default: options.webhookSecret || config?.webhookSecret || `discord_${Date.now()}`,
            validate: (input) => input.length >= 8 || 'Secret must be at least 8 characters'
+         },
+         {
+           type: 'input',
+           name: 'proSubscriptionDuration',
+           message: 'Pro subscription duration (minutes):',
+           default: options.proDuration || config?.proSubscriptionDuration || 10,
+           validate: (input) => {
+             const num = parseInt(input);
+             return (num >= 1 && num <= 60) || 'Duration must be between 1 and 60 minutes';
+           },
+           filter: (input) => parseInt(input)
+         },
+         {
+           type: 'input',
+           name: 'proNotifyBeforeExpiry',
+           message: 'Minutes before expiry to notify:',
+           default: options.proNotify || config?.proNotifyBeforeExpiry || 2,
+           validate: (input, answers) => {
+             const num = parseInt(input);
+             const duration = answers.proSubscriptionDuration;
+             return (num >= 1 && num < duration) || `Must be between 1 and ${duration - 1} minutes`;
+           },
+           filter: (input) => parseInt(input)
          }
        ]);
 
@@ -69,6 +96,8 @@ discordCommand
           botToken: answers.botToken,
           guildId: answers.guildId,
           webhookSecret: answers.webhookSecret,
+          proSubscriptionDuration: answers.proSubscriptionDuration,
+          proNotifyBeforeExpiry: answers.proNotifyBeforeExpiry,
           planRoleMapping: config?.planRoleMapping || {}
         };
 
@@ -79,6 +108,8 @@ discordCommand
       console.log(`   Guild ID: ${updatedConfig.guildId}`);
       console.log(`   Webhook Secret: ${updatedConfig.webhookSecret.substring(0, 8)}...`);
       console.log(`   Plan Mappings: ${Object.keys(updatedConfig.planRoleMapping || {}).length} configured`);
+      console.log(`   Pro Duration: ${updatedConfig.proSubscriptionDuration} minutes`);
+      console.log(`   Pro Notify: ${updatedConfig.proNotifyBeforeExpiry} minutes before expiry`);
 
       // Test connection
       console.log('\n🔍 Testing Discord connection...');
@@ -324,21 +355,27 @@ discordCommand
   .description('Start Discord webhook listener')
   .option('--port <port>', 'Port to listen on', '3001')
   .option('--path <path>', 'Webhook endpoint path', '/webhook')
+  .option('--secret <secret>', 'Webhook verification secret')
+  .option('--offline', 'Start listener without connecting to Discord')
   .action(async (options) => {
     try {
       console.log('🎧 Starting Discord webhook listener...\n');
 
-      const config = await configManager.loadConfig();
-      
-      if (!config) {
-        console.log('❌ No Discord configuration found. Run "billing discord config" first.');
-        return;
+      let secret = options.secret;
+      if (!secret) {
+        try {
+          const config = await configManager.loadConfig();
+          secret = config?.webhookSecret || 'default-secret';
+        } catch {
+          secret = 'default-secret';
+        }
       }
-      
+
       const listenerConfig = {
         port: parseInt(options.port),
         path: options.path,
-        secret: config.webhookSecret || 'default-secret'
+        secret: secret,
+        offline: !!options.offline
       };
 
       const listener = new DiscordWebhookListener(listenerConfig);
@@ -363,6 +400,9 @@ discordCommand
       console.log(`   Port: ${listenerConfig.port}`);
       console.log(`   Webhook URL: http://localhost:${listenerConfig.port}${listenerConfig.path}`);
       console.log(`   Health Check: http://localhost:${listenerConfig.port}/health`);
+      if (listenerConfig.offline) {
+        console.log('   Mode: Offline (Discord connection skipped)');
+      }
       console.log('\n💡 Supported Events:');
       console.log('   • invoice.paid → Grant Discord role');
       console.log('   • subscription.expired → Revoke Discord role');

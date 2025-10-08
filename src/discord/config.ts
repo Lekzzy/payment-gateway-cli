@@ -18,7 +18,9 @@ export class DiscordConfigManager {
       webhookSecret: '',
       retryAttempts: 3,
       retryDelay: 1000,
-      logLevel: 'info'
+      logLevel: 'info',
+      proSubscriptionDuration: 10, // 10 minutes default
+      proNotifyBeforeExpiry: 2 // 2 minutes before expiry default
     };
   }
 
@@ -27,7 +29,11 @@ export class DiscordConfigManager {
    */
   async loadConfig(): Promise<DiscordConfig | null> {
     try {
-      const configData = await fs.readFile(this.configPath, 'utf-8');
+      let configData = await fs.readFile(this.configPath, 'utf-8');
+      // Strip BOM if present to prevent JSON.parse errors on Windows-created files
+      if (configData.charCodeAt(0) === 0xFEFF) {
+        configData = configData.slice(1);
+      }
       const config = JSON.parse(configData) as DiscordConfig;
       
       // Validate required fields
@@ -150,6 +156,17 @@ export class DiscordConfigManager {
 
     if (config.retryDelay !== undefined && (config.retryDelay < 100 || config.retryDelay > 60000)) {
       throw new Error('Retry delay must be between 100ms and 60s');
+    }
+
+    const duration = config.proSubscriptionDuration || 10;
+    const notifyBefore = config.proNotifyBeforeExpiry || 2;
+
+    if (duration < 1 || duration > 60) {
+      throw new Error('Pro subscription duration must be between 1 and 60 minutes');
+    }
+
+    if (notifyBefore < 1 || notifyBefore >= duration) {
+      throw new Error('Pro notification time must be between 1 minute and less than subscription duration');
     }
 
     // Validate plan role mappings
